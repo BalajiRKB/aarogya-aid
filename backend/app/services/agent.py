@@ -1,8 +1,8 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.agents import AgentExecutor, create_openai_tools_agent
+from langgraph.prebuilt import create_react_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import tool
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from app.core.vector_store import get_collection
 from app.core.config import settings
 from app.schemas.profile import UserProfile
@@ -111,25 +111,17 @@ def build_profile_context(profile: UserProfile) -> str:
 
 
 def create_agent():
-    # Gemini handles all LLM reasoning — free tier, tool-calling supported
     llm = ChatGoogleGenerativeAI(
         model=settings.LLM_MODEL,
         google_api_key=settings.GEMINI_API_KEY,
         temperature=0.1,
     )
     tools = [retrieve_policy_chunks, list_available_policies]
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", SYSTEM_PROMPT),
-        MessagesPlaceholder(variable_name="chat_history", optional=True),
-        ("human", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-    ])
-    agent = create_openai_tools_agent(llm, tools, prompt)
-    return AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=6)
+    return create_react_agent(llm, tools)
 
 
 def get_recommendation(profile: UserProfile) -> dict:
-    agent_executor = create_agent()
+    agent = create_agent()
     profile_ctx = build_profile_context(profile)
     query = f"""{profile_ctx}
 
@@ -137,8 +129,12 @@ Please provide a full insurance recommendation for this user.
 First call list_available_policies, then call retrieve_policy_chunks with relevant queries.
 Return your response as the JSON structure defined in your instructions."""
 
-    result = agent_executor.invoke({"input": query})
-    output = result["output"]
+    messages = [
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content=query),
+    ]
+    result = agent.invoke({"messages": messages})
+    output = result["messages"][-1].content
 
     json_match = re.search(r'\{.*\}', output, re.DOTALL)
     if json_match:
@@ -147,15 +143,16 @@ Return your response as the JSON structure defined in your instructions."""
 
 
 def chat_with_agent(profile: UserProfile, recommended_policy: str, history: list, message: str) -> dict:
-    agent_executor = create_agent()
+    agent = create_agent()
     profile_ctx = build_profile_context(profile)
 
-    chat_history = []
+    messages = [SystemMessage(content=SYSTEM_PROMPT)]
+
     for turn in history:
         if turn["role"] == "user":
-            chat_history.append(HumanMessage(content=turn["content"]))
+            messages.append(HumanMessage(content=turn["content"]))
         else:
-            chat_history.append(AIMessage(content=turn["content"]))
+            messages.append(AIMessage(content=turn["content"]))
 
     query = f"""{profile_ctx}
 Currently recommended policy: {recommended_policy}
@@ -164,5 +161,6 @@ User question: {message}
 
 Remember: call retrieve_policy_chunks if you need policy-specific facts."""
 
-    result = agent_executor.invoke({"input": query, "chat_history": chat_history})
-    return {"reply": result["output"], "sources": []}
+    messages.append(HumanMessage(content=query))
+    result = agent.invoke({"messages": messages})
+    return {"reply": result["messages"][-1].content, "sources": []}
