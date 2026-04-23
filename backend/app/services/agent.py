@@ -113,8 +113,6 @@ def create_agent():
         model=settings.LLM_MODEL,
         google_api_key=settings.GEMINI_API_KEY,
         temperature=0.1,
-        client_options={"api_endpoint": "generativelanguage.googleapis.com"},
-        transport="rest",
     )
     tools = [retrieve_policy_chunks, list_available_policies]
     return create_react_agent(llm, tools)
