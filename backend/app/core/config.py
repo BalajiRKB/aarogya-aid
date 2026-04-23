@@ -2,10 +2,7 @@ from pydantic_settings import BaseSettings
 from typing import List
 
 class Settings(BaseSettings):
-    # Groq — LLM inference (llama-3.3-70b-versatile)
-    GROQ_API_KEY: str
-
-    # Gemini — embeddings only (text-embedding-004, free tier)
+    # Gemini — LLM inference + embeddings (single API key, free tier)
     GEMINI_API_KEY: str
 
     CHROMA_PERSIST_DIR: str = "./chroma_db"
@@ -14,7 +11,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
     SECRET_KEY: str = "changeme-use-a-real-secret-in-production"
 
-    LLM_MODEL: str = "llama-3.3-70b-versatile"
+    LLM_MODEL: str = "gemini-1.5-flash"
     EMBEDDING_MODEL: str = "models/text-embedding-004"
 
     class Config:

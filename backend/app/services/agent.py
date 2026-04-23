@@ -1,4 +1,4 @@
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import tool
@@ -111,10 +111,10 @@ def build_profile_context(profile: UserProfile) -> str:
 
 
 def create_agent():
-    # Groq handles all LLM reasoning — fast, free tier, tool-calling supported
-    llm = ChatGroq(
+    # Gemini handles all LLM reasoning — free tier, tool-calling supported
+    llm = ChatGoogleGenerativeAI(
         model=settings.LLM_MODEL,
-        api_key=settings.GROQ_API_KEY,
+        google_api_key=settings.GEMINI_API_KEY,
         temperature=0.1,
     )
     tools = [retrieve_policy_chunks, list_available_policies]
