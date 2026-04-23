@@ -1,12 +1,10 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.prebuilt import create_react_agent
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.tools import tool
+from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from app.core.vector_store import get_collection
 from app.core.config import settings
 from app.schemas.profile import UserProfile
-from typing import List
 import json
 import re
 
