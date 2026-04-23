@@ -1,5 +1,4 @@
 from langchain_groq import ChatGroq
-from langchain_openai import OpenAIEmbeddings
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import tool
@@ -10,6 +9,7 @@ from app.schemas.profile import UserProfile
 from typing import List
 import json
 import re
+
 
 # ── Tool 1: Retrieve grounded policy chunks from Chroma ──────────────────────
 @tool
@@ -35,7 +35,8 @@ def retrieve_policy_chunks(query: str) -> str:
         output_parts.append(f"{source}\n{doc}")
     return "\n\n---\n\n".join(output_parts)
 
-# ── Tool 2: List all available policies in the knowledge base ─────────────────
+
+# ── Tool 2: List all available policies ─────────────────────────────────────
 @tool
 def list_available_policies() -> str:
     """
@@ -55,7 +56,8 @@ def list_available_policies() -> str:
             policies.append(key)
     return json.dumps(policies)
 
-# ── System prompt ──────────────────────────────────────────────────────────────
+
+# ── System prompt ─────────────────────────────────────────────────────────────
 SYSTEM_PROMPT = """You are Aarogya, an empathetic AI insurance advisor at AarogyaAid.
 Your sole purpose is to help patients navigate health insurance with warmth, clarity, and honesty.
 
@@ -96,6 +98,7 @@ The why_this_policy must be 150-250 words and reference at least 3 of the 6 prof
 All data must come from retrieved document chunks, not training knowledge.
 """
 
+
 def build_profile_context(profile: UserProfile) -> str:
     conditions = ", ".join(profile.pre_existing_conditions)
     return f"""USER PROFILE (do not re-ask for any of this information):
@@ -106,8 +109,9 @@ def build_profile_context(profile: UserProfile) -> str:
 - Annual income band: {profile.income_band}
 - City tier: {profile.city_tier}"""
 
+
 def create_agent():
-    # Groq handles all LLM reasoning — fast, free tier available, tool-calling supported
+    # Groq handles all LLM reasoning — fast, free tier, tool-calling supported
     llm = ChatGroq(
         model=settings.LLM_MODEL,
         api_key=settings.GROQ_API_KEY,
@@ -123,15 +127,14 @@ def create_agent():
     agent = create_openai_tools_agent(llm, tools, prompt)
     return AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=6)
 
+
 def get_recommendation(profile: UserProfile) -> dict:
-    """Run the agent to produce a structured recommendation from RAG-grounded data."""
     agent_executor = create_agent()
     profile_ctx = build_profile_context(profile)
     query = f"""{profile_ctx}
 
 Please provide a full insurance recommendation for this user.
-First call list_available_policies, then call retrieve_policy_chunks with relevant queries
-(e.g., query for the user's conditions, income band, and city tier).
+First call list_available_policies, then call retrieve_policy_chunks with relevant queries.
 Return your response as the JSON structure defined in your instructions."""
 
     result = agent_executor.invoke({"input": query})
@@ -142,8 +145,8 @@ Return your response as the JSON structure defined in your instructions."""
         return json.loads(json_match.group())
     raise ValueError(f"Agent did not return valid JSON. Output: {output}")
 
+
 def chat_with_agent(profile: UserProfile, recommended_policy: str, history: list, message: str) -> dict:
-    """Handle a follow-up chat turn with full session context."""
     agent_executor = create_agent()
     profile_ctx = build_profile_context(profile)
 
@@ -159,8 +162,7 @@ Currently recommended policy: {recommended_policy}
 
 User question: {message}
 
-Remember: call retrieve_policy_chunks if you need policy-specific facts.
-If the user asks about a term, define it in plain English and give a realistic example using their actual profile."""
+Remember: call retrieve_policy_chunks if you need policy-specific facts."""
 
     result = agent_executor.invoke({"input": query, "chat_history": chat_history})
     return {"reply": result["output"], "sources": []}
