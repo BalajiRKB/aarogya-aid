@@ -12,6 +12,11 @@ def get_chroma_client() -> chromadb.PersistentClient:
     return _client
 
 def get_collection():
+    """
+    Uses OpenAI's text-embedding-3-small for embeddings.
+    Groq does not provide an embeddings API, so OpenAI is kept
+    specifically and only for this purpose.
+    """
     global _collection
     client = get_chroma_client()
     ef = embedding_functions.OpenAIEmbeddingFunction(

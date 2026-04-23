@@ -1,4 +1,5 @@
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
+from langchain_openai import OpenAIEmbeddings
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import tool
@@ -8,6 +9,7 @@ from app.core.config import settings
 from app.schemas.profile import UserProfile
 from typing import List
 import json
+import re
 
 # ── Tool 1: Retrieve grounded policy chunks from Chroma ──────────────────────
 @tool
@@ -26,14 +28,14 @@ def retrieve_policy_chunks(query: str) -> str:
     results = collection.query(query_texts=[query], n_results=6)
     if not results or not results["documents"][0]:
         return "No relevant policy information found in the uploaded documents."
-    
+
     output_parts = []
     for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
         source = f"[Source: {meta.get('policy_name', 'Unknown')} by {meta.get('insurer', 'Unknown')}]"
         output_parts.append(f"{source}\n{doc}")
     return "\n\n---\n\n".join(output_parts)
 
-# ── Tool 2: Get all policy names available in the vector store ────────────────
+# ── Tool 2: List all available policies in the knowledge base ─────────────────
 @tool
 def list_available_policies() -> str:
     """
@@ -53,7 +55,7 @@ def list_available_policies() -> str:
             policies.append(key)
     return json.dumps(policies)
 
-# ── System prompt ─────────────────────────────────────────────────────────────
+# ── System prompt ──────────────────────────────────────────────────────────────
 SYSTEM_PROMPT = """You are Aarogya, an empathetic AI insurance advisor at AarogyaAid.
 Your sole purpose is to help patients navigate health insurance with warmth, clarity, and honesty.
 
@@ -105,7 +107,12 @@ def build_profile_context(profile: UserProfile) -> str:
 - City tier: {profile.city_tier}"""
 
 def create_agent():
-    llm = ChatOpenAI(model=settings.LLM_MODEL, api_key=settings.OPENAI_API_KEY, temperature=0.1)
+    # Groq handles all LLM reasoning — fast, free tier available, tool-calling supported
+    llm = ChatGroq(
+        model=settings.LLM_MODEL,
+        api_key=settings.GROQ_API_KEY,
+        temperature=0.1,
+    )
     tools = [retrieve_policy_chunks, list_available_policies]
     prompt = ChatPromptTemplate.from_messages([
         ("system", SYSTEM_PROMPT),
@@ -126,12 +133,10 @@ Please provide a full insurance recommendation for this user.
 First call list_available_policies, then call retrieve_policy_chunks with relevant queries
 (e.g., query for the user's conditions, income band, and city tier).
 Return your response as the JSON structure defined in your instructions."""
-    
+
     result = agent_executor.invoke({"input": query})
     output = result["output"]
-    
-    # Extract JSON from agent output
-    import re
+
     json_match = re.search(r'\{.*\}', output, re.DOTALL)
     if json_match:
         return json.loads(json_match.group())
@@ -141,14 +146,14 @@ def chat_with_agent(profile: UserProfile, recommended_policy: str, history: list
     """Handle a follow-up chat turn with full session context."""
     agent_executor = create_agent()
     profile_ctx = build_profile_context(profile)
-    
+
     chat_history = []
     for turn in history:
         if turn["role"] == "user":
             chat_history.append(HumanMessage(content=turn["content"]))
         else:
             chat_history.append(AIMessage(content=turn["content"]))
-    
+
     query = f"""{profile_ctx}
 Currently recommended policy: {recommended_policy}
 
@@ -156,6 +161,6 @@ User question: {message}
 
 Remember: call retrieve_policy_chunks if you need policy-specific facts.
 If the user asks about a term, define it in plain English and give a realistic example using their actual profile."""
-    
+
     result = agent_executor.invoke({"input": query, "chat_history": chat_history})
     return {"reply": result["output"], "sources": []}
