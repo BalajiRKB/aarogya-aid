@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
     SECRET_KEY: str = "changeme-use-a-real-secret-in-production"
 
-    LLM_MODEL: str = "gemini-2.5-flash-lite"
+    LLM_MODEL: str = "gemini-1.5-flash-latest"
     EMBEDDING_MODEL: str = "models/text-embedding-004"
 
     class Config:
