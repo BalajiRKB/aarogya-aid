@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 from typing import List
 
 class Settings(BaseSettings):
-    # Gemini — embeddings only (free tier, text-embedding-004)
+    # Gemini — embeddings only (free tier)
     GEMINI_API_KEY: str
 
     # Groq — LLM inference (fast, free tier)
@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "changeme-use-a-real-secret-in-production"
 
     LLM_MODEL: str = "llama-3.3-70b-versatile"
-    EMBEDDING_MODEL: str = "models/text-embedding-004"
+    # text-embedding-004 is not available on the v1beta API endpoint used by
+    # langchain-google-genai (deprecated google.generativeai SDK).
+    # Use models/embedding-001 which works on v1beta and is stable.
+    EMBEDDING_MODEL: str = "models/embedding-001"
 
     class Config:
         env_file = ".env"

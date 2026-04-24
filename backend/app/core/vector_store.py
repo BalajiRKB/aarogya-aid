@@ -10,12 +10,13 @@ _collection = None
 class GeminiEmbeddingFunction(EmbeddingFunction):
     """
     Wraps LangChain's GoogleGenerativeAIEmbeddings so Chroma can call it.
-    Uses Gemini text-embedding-004 — free tier, 768-dim, no OpenAI needed.
+    Uses Gemini embedding-001 — free tier, 768-dim, compatible with v1beta API.
     """
     def __init__(self):
         self._model = GoogleGenerativeAIEmbeddings(
             model=settings.EMBEDDING_MODEL,
             google_api_key=settings.GEMINI_API_KEY,
+            task_type="retrieval_document",
         )
 
     def __call__(self, input: Documents) -> Embeddings:
