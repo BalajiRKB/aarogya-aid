@@ -1,4 +1,4 @@
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -109,9 +109,9 @@ def build_profile_context(profile: UserProfile) -> str:
 
 
 def create_agent():
-    llm = ChatGoogleGenerativeAI(
+    llm = ChatGroq(
         model=settings.LLM_MODEL,
-        google_api_key=settings.GEMINI_API_KEY,
+        api_key=settings.GROQ_API_KEY,
         temperature=0.1,
     )
     tools = [retrieve_policy_chunks, list_available_policies]
