@@ -1,5 +1,6 @@
 import chromadb
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from google import genai
+from google.genai import types as genai_types
 from chromadb import Documents, EmbeddingFunction, Embeddings
 from app.core.config import settings
 
@@ -9,18 +10,22 @@ _collection = None
 
 class GeminiEmbeddingFunction(EmbeddingFunction):
     """
-    Wraps LangChain's GoogleGenerativeAIEmbeddings so Chroma can call it.
-    Uses Gemini embedding-001 — free tier, 768-dim, compatible with v1beta API.
+    Uses the new google-genai SDK (v1 API) for embeddings.
+    Avoids the deprecated google.generativeai / v1beta route used by
+    langchain-google-genai, which has no working embedding model.
     """
     def __init__(self):
-        self._model = GoogleGenerativeAIEmbeddings(
-            model=settings.EMBEDDING_MODEL,
-            google_api_key=settings.GEMINI_API_KEY,
-            task_type="retrieval_document",
-        )
+        self._genai_client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
     def __call__(self, input: Documents) -> Embeddings:
-        return self._model.embed_documents(list(input))
+        result = self._genai_client.models.embed_content(
+            model=settings.EMBEDDING_MODEL,
+            contents=list(input),
+            config=genai_types.EmbedContentConfig(
+                task_type="RETRIEVAL_DOCUMENT",
+            ),
+        )
+        return [e.values for e in result.embeddings]
 
 
 def get_chroma_client() -> chromadb.PersistentClient:
